@@ -105,5 +105,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        # Delete old release and tag if exists
+        gh release delete gta-trollhelper-v1.0 --repo BuLu0208/gta-trollhelper-builder --yes --cleanup-tag 2>/dev/null || true
         NOTES="TrollHelper_iOS15.ipa arm64 A8-A11 iOS 14.0-15.4.1 | TrollHelper_arm64e.ipa arm64e A12+ iOS 14.0-15.6.1 | Victim: GTA Car Tracker"
         gh release create gta-trollhelper-v1.0 TrollHelper_iOS15.ipa TrollHelper_arm64e.ipa --repo BuLu0208/gta-trollhelper-builder --title "GTA TrollHelper OTA" --notes "$NOTES" --prerelease
