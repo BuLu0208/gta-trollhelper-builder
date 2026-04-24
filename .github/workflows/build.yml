@@ -8,6 +8,9 @@ on:
       - '.gitignore'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -89,17 +92,14 @@ jobs:
         retention-days: 30
 
     - name: Upload to Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: gta-trollhelper-v1.0
-        files: |
-          TrollHelper_iOS15.ipa
-          TrollHelper_arm64e.ipa
-        body: |
-          GTA TrollHelper OTA IPAs
-          TrollHelper_iOS15.ipa - arm64 A8-A11 - iOS 14.0-15.4.1
-          TrollHelper_arm64e.ipa - arm64e A12+ - iOS 14.0-15.6.1
-          Victim: GTA Car Tracker - Team ID: T8ALTGMVXN
-        draft: false
-        prerelease: true
-        overwrite_files: true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create gta-trollhelper-v1.0 \
+          TrollHelper_iOS15.ipa TrollHelper_arm64e.ipa \
+          --repo BuLu0208/gta-trollhelper-builder \
+          --title "GTA TrollHelper OTA" \
+          --notes "TrollHelper_iOS15.ipa - arm64 A8-A11 - iOS 14.0-15.4.1
+        TrollHelper_arm64e.ipa - arm64e A12+ - iOS 14.0-15.6.1
+        Victim: GTA Car Tracker - Team ID: T8ALTGMVXN" \
+          --prerelease true 2>&1
