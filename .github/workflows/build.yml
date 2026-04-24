@@ -62,13 +62,14 @@ jobs:
         echo "Generated victim_gta.p12 for GTA Car Tracker (Team ID: T8ALTGMVXN)"
         ls -la victim_gta.p12
 
-    - name: Create InstallerVictim.ipa from Runner.app
+    - name: Download InstallerVictim.ipa from Release
       run: |
-        mkdir -p _build/payload/Payload
-        cp -r Runner/Runner.app _build/payload/Payload/
-        cd _build/payload && zip -r ../../Victim/InstallerVictim.ipa Payload/ && cd ../..
-        echo "Created InstallerVictim.ipa:"
+        gh release download gta-victim-v1.0 --repo BuLu0208/gta-trollhelper-builder --pattern "InstallerVictim.ipa" --output "Victim/InstallerVictim.ipa" --clobber
+        echo "Downloaded InstallerVictim.ipa:"
         ls -la Victim/InstallerVictim.ipa
+
+    - name: Create Victim dir
+      run: mkdir -p Victim
 
     - name: Verify Victim IPA
       run: |
