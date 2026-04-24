@@ -2,3 +2,4 @@ Victim/
 *.p12
 *.ipa
 _build/
+_tmp_ipa/
