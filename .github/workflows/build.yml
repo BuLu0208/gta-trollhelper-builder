@@ -7,11 +7,6 @@ on:
       - '**.md'
       - '.gitignore'
   workflow_dispatch:
-    inputs:
-      upload_release:
-        description: 'Upload to GitHub Release'
-        required: false
-        default: 'false'
 
 jobs:
   build:
@@ -24,60 +19,18 @@ jobs:
     - name: Install dependencies
       run: brew install ldid openssl@3
 
-    # ========== 缓存：Homebrew 依赖 ==========
-    - name: Cache Homebrew
-      uses: actions/cache@v4
-      with:
-        path: ~/Library/Caches/Homebrew
-        key: brew-deps-gta-v1-${{ hashFiles('.github/workflows/build.yml') }}
-        restore-keys: brew-deps-gta-v1-
-
-    # ========== 缓存：ChOma + Pwnify ==========
-    - name: Cache ChOma Pwnify
-      uses: actions/cache@v4
-      with:
-        path: |
-          /usr/local/lib/libcho.a
-          /usr/local/include/cho
-          /usr/local/lib/libpwnify.a
-          /usr/local/include/pwnify
-        key: cho-pwnify-gta-v1-${{ hashFiles('scripts/pwnify.py') }}
-
-    - name: Build Pwnify
-      run: |
-        if [ ! -f "/usr/local/lib/libpwnify.a" ]; then
-          brew install libarchive pkg-config || true
-          # Build from trollstore1.2 source if available, otherwise use Python pwnify
-          echo "Using Python pwnify.py"
-        else
-          echo "Pwnify cached"
-        fi
-
-    - name: Generate victim_gta.p12 (Team ID: T8ALTGMVXN)
-      run: |
-        # GTA Car Tracker 的 Team ID 是 T8ALTGMVXN
-        # 使用跟 trollstore 1.2 一样的证书生成方式
-        bash scripts/generate_victim_cert.sh T8ALTGMVXN
-        mv victim.p12 victim_gta.p12
-        echo "Generated victim_gta.p12 for GTA Car Tracker (Team ID: T8ALTGMVXN)"
-        ls -la victim_gta.p12
-
     - name: Download InstallerVictim.ipa from Release
       run: |
+        mkdir -p Victim
         gh release download gta-victim-v1.0 --repo BuLu0208/gta-trollhelper-builder --pattern "InstallerVictim.ipa" --output "Victim/InstallerVictim.ipa" --clobber
         echo "Downloaded InstallerVictim.ipa:"
         ls -la Victim/InstallerVictim.ipa
 
-    - name: Create Victim dir
-      run: mkdir -p Victim
-
-    - name: Verify Victim IPA
+    - name: Generate victim_gta.p12
       run: |
-        echo "=== Victim IPA Info ==="
-        echo "Bundle ID: com.icraze.gtatracker"
-        echo "Team ID: T8ALTGMVXN"
-        echo "App Name: GTA Car Tracker"
-        file Victim/InstallerVictim.ipa
+        bash scripts/generate_victim_cert.sh T8ALTGMVXN
+        mv victim.p12 victim_gta.p12
+        ls -la victim_gta.p12
 
     - name: Verify helper binaries
       run: |
@@ -87,12 +40,9 @@ jobs:
             exit 1
           fi
           file "$f"
-          echo "---"
         done
 
-    # ========== Build TrollHelper_iOS15.ipa (arm64, A8-A11) ==========
-    # 使用 pwnify pwn + victim_gta.p12 签名 = 免信任 OTA 安装
-    - name: Build TrollHelper_iOS15.ipa (arm64, A8-A11)
+    - name: Build TrollHelper_iOS15.ipa (arm64)
       run: |
         mkdir -p _build/tmp15
         unzip -o Victim/InstallerVictim.ipa -d _build/tmp15
@@ -101,28 +51,18 @@ jobs:
         BINARY_NAME=$(echo "$APP_NAME" | cut -f1 -d'.')
         echo "App: $APP_NAME, Binary: $BINARY_NAME"
 
-        # 复制持久化助手并设置 CPU 子类型
         cp helpers/PersistenceHelper_Embedded_Legacy_arm64 _build/TrollStorePersistenceHelperToInject
         python3 scripts/pwnify.py set-cpusubtype _build/TrollStorePersistenceHelperToInject 1
-
-        # 用 victim_gta.p12 签名（GTA Car Tracker 的 Team ID）
         ldid -S -K./victim_gta.p12 _build/TrollStorePersistenceHelperToInject
-
-        # 注入持久化助手到 Runner 二进制
         python3 scripts/pwnify.py pwn "_build/tmp15/Payload/$APP_NAME/$BINARY_NAME" _build/TrollStorePersistenceHelperToInject
 
-        echo "=== Result ==="
         python3 scripts/pwnify.py print "_build/tmp15/Payload/$APP_NAME/$BINARY_NAME"
-
-        # 打包
         cd _build/tmp15 && zip -r ../../TrollHelper_iOS15.ipa Payload/ && cd ../..
         rm -f _build/TrollStorePersistenceHelperToInject
         rm -rf _build/tmp15
         echo "Built TrollHelper_iOS15.ipa ($(du -h TrollHelper_iOS15.ipa | cut -f1))"
 
-    # ========== Build TrollHelper_arm64e.ipa (A12+) ==========
-    # 使用 pwnify pwn64e = 免信任 OTA 安装
-    - name: Build TrollHelper_arm64e.ipa (A12+)
+    - name: Build TrollHelper_arm64e.ipa (arm64e)
       run: |
         mkdir -p _build/tmp64e
         unzip -o Victim/InstallerVictim.ipa -d _build/tmp64e
@@ -131,13 +71,9 @@ jobs:
         BINARY_NAME=$(echo "$APP_NAME" | cut -f1 -d'.')
         echo "App: $APP_NAME, Binary: $BINARY_NAME"
 
-        # pwn64e 注入（不需要额外签名）
         python3 scripts/pwnify.py pwn64e "_build/tmp64e/Payload/$APP_NAME/$BINARY_NAME" helpers/PersistenceHelper_Embedded_Legacy_arm64e
 
-        echo "=== Result ==="
         python3 scripts/pwnify.py print "_build/tmp64e/Payload/$APP_NAME/$BINARY_NAME"
-
-        # 打包
         cd _build/tmp64e && zip -r ../../TrollHelper_arm64e.ipa Payload/ && cd ../..
         rm -rf _build/tmp64e
         echo "Built TrollHelper_arm64e.ipa ($(du -h TrollHelper_arm64e.ipa | cut -f1))"
@@ -159,15 +95,10 @@ jobs:
           TrollHelper_iOS15.ipa
           TrollHelper_arm64e.ipa
         body: |
-          ## GTA TrollHelper OTA IPAs
-          | File | Device | iOS |
-          |------|--------|-----|
-          | TrollHelper_iOS15.ipa | A11及以下 (arm64) | 14.0-15.4.1 |
-          | TrollHelper_arm64e.ipa | A12+ (arm64e) | 14.0-15.6.1 |
-
-          Victim: GTA Car Tracker (com.icraze.gtatracker)
-          Signed with victim_gta.p12 (Team ID: T8ALTGMVXN)
-          OTA install without trust required.
+          GTA TrollHelper OTA IPAs
+          TrollHelper_iOS15.ipa - arm64 A8-A11 - iOS 14.0-15.4.1
+          TrollHelper_arm64e.ipa - arm64e A12+ - iOS 14.0-15.6.1
+          Victim: GTA Car Tracker - Team ID: T8ALTGMVXN
         draft: false
         prerelease: true
         overwrite_files: true
