@@ -27,7 +27,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         mkdir -p Victim
-        gh release download gta-victim-v1.0 --repo BuLu0208/gta-trollhelper-builder --pattern "InstallerVictim.ipa" --output "Victim/InstallerVictim.ipa" --clobber
+        gh release download gta-victim-v1.0 --repo BuLu0208/gta-trollhelper-builder --pattern "a12.ipa" --output "Victim/InstallerVictim.ipa" --clobber
         ls -la Victim/InstallerVictim.ipa
 
     - name: Generate victim_gta.p12
