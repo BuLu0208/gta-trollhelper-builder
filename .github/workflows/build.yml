@@ -20,10 +20,11 @@ jobs:
       run: brew install ldid openssl@3
 
     - name: Download InstallerVictim.ipa from Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         mkdir -p Victim
         gh release download gta-victim-v1.0 --repo BuLu0208/gta-trollhelper-builder --pattern "InstallerVictim.ipa" --output "Victim/InstallerVictim.ipa" --clobber
-        echo "Downloaded InstallerVictim.ipa:"
         ls -la Victim/InstallerVictim.ipa
 
     - name: Generate victim_gta.p12
